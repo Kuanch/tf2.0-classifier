@@ -4,6 +4,9 @@ Rewrite a simple CNN classifier with tensorflow 2.0 alpha, apply [iWild dataset]
 
 # iWild Dateset
 This is an FGVCx competition as part of the FGVC6 workshop at CVPR 2019, and is sponsored by Microsoft AI for Earth. There is a github page for the competition here. Please open an issue if you have questions or problems with the dataset.
+<p align="center">
+  <img src="sample/sample.jpg" width=676 height=450>
+</p>
 
 
 # Things to work
