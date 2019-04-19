@@ -9,6 +9,8 @@ control_flow_util.ENABLE_CONTROL_FLOW_V2 = True
 from model.model import *
 from dataset.create_dataset import create_dataset
 from preprocess.preprocess import preprocess_for_train
+from loss.weight_loss_fn import create_loss_weight, create_weight_mask
+
 
 
 parser = ArgumentParser()
@@ -29,8 +31,8 @@ parser.add_argument('--batch_size', type=int)
 
 parser.add_argument('--num_epoch', type=int)
 
-parser.add_argument('--cifar10_test_mode', dest='feature', action='store_true', help='if activating cifar test mode')
-parser.set_defaults(cifar10_test_mode=True)
+parser.add_argument('--cifar10_test_mode', dest='cifar10_test_mode', action='store_true', help='if activating cifar test mode')
+parser.set_defaults(cifar10_test_mode=False)
 
 args = parser.parse_args()
 
@@ -43,8 +45,17 @@ def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics):
 
   with tf.GradientTape() as tape:
     logits = model(x_train)  # Logits for this minibatch
+
+    # Weights loss
+    """ 
+    When assign a specific class, it's confidence will always times weight. 
+    If weight > 1, the model tend to not to allocate confidence on the class.
+    Otherwise, predicitons will tend to fall into it.
+    """
+    weight_array = create_loss_weight(args.num_label, weight_category=0, weight=1)
+    loss_mask = create_weight_mask(y_train, logits, weights=weight_array)
     # Loss value for this minibatch
-    loss_value = loss_fn(y_true=y_train, y_pred=logits)
+    loss_value = loss_fn(y_true=y_train, y_pred=logits,sample_weight=loss_mask)
     # Add extra losses created during this forward pass:
     loss_value += sum(model.losses)
 
@@ -63,39 +74,36 @@ def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics):
 #@tf.function
 def train(model, optimizer, loss_fn, dataset, metrics, epoch):
 
-  for e in range(epoch):
-    step = 0
-    for images, labels in dataset:
-      step += 1
-      
-      loss = train_one_step(model, optimizer, loss_fn, images, labels, metrics)
+  step = 0
+  for images, labels in dataset:
+    step += 1
+    
+    loss = train_one_step(model, optimizer, loss_fn, images, labels, metrics)
 
-      if tf.equal(step % 10, 0):
-        tf.print('step', step, 'loss', loss, 'accuracy', metrics.result())
-    tf.print('epoch', e, 'step', step, 'loss', loss, 'accuracy', metrics.result())
+    if tf.equal(step % 10, 0):
+      tf.print('step', step, 'loss', loss, 'accuracy', metrics.result())
   tf.print('Final:step', step, 'loss', loss, 'accuracy', metrics.result())
-
 
 
 def main():
 
   if args.cifar10_test_mode:
-    dataset = create_dataset(args.tfrecord_path, args.batch_size, cifar10_test_mode=True)
-  
+
     train_image_size = 32
     num_label = 10
-    test_mode = True
+
+    dataset = create_dataset(args.tfrecord_path, args.batch_size, train_image_size, num_label,
+                             preprocess_for_train, test_mode=True)
+  
 
   else:
-    dataset = create_dataset(args.tfrecord_path, args.batch_size)
-
+    
     train_image_size = args.train_image_size
     num_label = args.num_label
-    test_mode = False
 
-  dataset = dataset.map(lambda images, labels:preprocess_for_train(images, labels,
-                                       train_image_size, train_image_size,
-                                       num_label, cifar10_test_mode=test_mode), num_parallel_calls=8)
+    dataset = create_dataset(args.tfrecord_path, args.batch_size, train_image_size,
+                             num_label, preprocess_for_train)
+
 
   # Clearing the session removes all the nodes left over
   tf.keras.backend.clear_session()
@@ -109,17 +117,21 @@ def main():
   # Cross-entorpy loss for classification
   loss_fn = tf.keras.losses.CategoricalCrossentropy()
   
+  
   # Metrics for classification accuracy
   compute_accuracy = tf.keras.metrics.CategoricalAccuracy()
-  
+
   # Create model
   model = Inception(args.num_label)
+
+  # Set up checkpoint
+  checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
 
   # Training process
   train(model, optimizer, loss_fn, dataset, compute_accuracy, args.num_epoch)
 
-  # Export the model to a SavedModel
-  tf.keras.experimental.export_saved_model(model, args.model_save_path)
+  # Export the model to a checkpoint
+  checkpoint.save(file_prefix=args.model_save_path + 'ckpt')
 
 
 if __name__ == '__main__':
