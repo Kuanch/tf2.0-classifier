@@ -14,7 +14,7 @@ parser.add_argument('--images_path', help='path of folder containing images')
 
 parser.add_argument('--tfrecord_output_path', help='where tfrecord is stored')
 
-parser.add_argument('--is_training', dest='feature', action='store_true', help='if creating a training dataset')
+parser.add_argument('--is_training', dest='is_training', action='store_true', help='if creating a training dataset')
 parser.set_defaults(is_training=False)
 
 args = parser.parse_args()
@@ -28,7 +28,9 @@ def read_image_name_and_category(info_file_path, is_training=True):
   folder_path = '/'.join(info_file_path.split('/')[:-1])
 
   with open(info_file_path, 'r') as f:
-    
+
+    writer = tf.io.TFRecordWriter(args.tfrecord_output_path)
+
     for line in f.readlines():
       if not num_image:
         num_image += 1 #Skip first line
@@ -46,12 +48,15 @@ def read_image_name_and_category(info_file_path, is_training=True):
         image_name = line_split[1]
         image_path = os.path.join(folder_path, 'test_images/' + image_name)
 
-      _encode_image_to_tfrecord(image_path, category_id)
-
+      example = _encode_image_to_tfrecord(image_path, category_id)
+      writer.write(example.SerializeToString())
+      
       num_image += 1
 
       if num_image % 1000 == 0:
         print(num_image, 'have been processed')
+
+    writer.close()
 
     print('Total processed images:{}'.format(num_image))
     
@@ -81,15 +86,7 @@ def _encode_image_to_tfrecord(image_path, category_id):
 
   }
 
-  _create_tfrecord(tf.train.Example(features=tf.train.Features(feature=feature_dict)))
-
-
-
-def _create_tfrecord(tf_example):
-  
-  tf_writer = tf.io.TFRecordWriter(args.tfrecord_output_path)
-  tf_writer.write(tf_example.SerializeToString())
-  tf_writer.close()
+  return tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
 
 
@@ -97,6 +94,10 @@ if __name__ == '__main__':
 
   if args.is_training:
     read_image_name_and_category(args.info_file_path)
+    print('Training mode!')
+
   else:
     read_image_name_and_category(args.info_file_path, is_training=False)
+    print('Testing mode!')
+'
 
