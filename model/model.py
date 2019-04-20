@@ -45,7 +45,6 @@ class InceptionBlock1(Layer):
   def call(self, x):
     return self.wide_block(x)
 
-
   @tf.function
   def wide_block(self, input):
     branch_0 = self.conv_1x1_b0(input)
@@ -72,6 +71,12 @@ class InceptionBase(tf.keras.Model):
   """docstring for Model"""
   def __init__(self):
     super(InceptionBase, self).__init__()
+    
+    self.shortcut_1 = Conv2D(filters=144, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')
+    self.shortcut_2 = Conv2D(filters=288, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')
+    self.shortcut_3 = Conv2D(filters=576, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')
+    self.shortcut_4 = Conv2D(filters=900, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')
+
     self.block_1 = InceptionBlock1(8)
     self.block_2 = InceptionBlock1(16)
     self.block_3 = InceptionBlock1(32)
@@ -80,20 +85,21 @@ class InceptionBase(tf.keras.Model):
 
   def call(self, input):
     input = self.block_1(input)
-    shortcut_1 = Conv2D(filters=144, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')(input)
+    shortcut_1 = self.shortcut_1(input)
     
     input = self.block_2(input)
     input = input + shortcut_1
-    shortcut_2 = Conv2D(filters=288, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')(input)
+    shortcut_2 = self.shortcut_2(input)
     
     input = self.block_3(input)
     input = input + shortcut_2
-    shortcut_3 = Conv2D(filters=576, strides=2, kernel_size=[1, 1], padding='same', kernel_initializer='zeros')(input)
+    shortcut_3 = self.shortcut_3(input)
     
     input = self.block_4(input)
     input = input + shortcut_3
+    shortcut_4 = self.shortcut_4(input)
     
-    return self.block_5(input)
+    return self.block_5(input) + shortcut_4
 
 
 

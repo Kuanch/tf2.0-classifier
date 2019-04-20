@@ -9,6 +9,15 @@ This is an FGVCx competition as part of the FGVC6 workshop at CVPR 2019, and is 
 </p>
 
 
+
+# Model Perfromance
+|Model             |GFlop|Kaggle Score|
+|:-----------------|:---:|:----------:|
+|Custom Molde      |-    |-           |
+|ResnetV2          |-    |-           |
+
+
+
 # Things to work
 - [ ] Evaluate classification benchmark with classic model like Inception.
 - [ ] Arrange new coding style on Tensorflow 2.0.

@@ -11,8 +11,7 @@ from dataset.create_dataset import create_dataset
 from preprocess.preprocess import preprocess_for_train
 from loss.weight_loss_fn import create_loss_weight, create_weight_mask
 
-from evaluation import evaluation
-
+from evaluation.evaluation import evaluate_for_iwild
 
 
 parser = ArgumentParser()
@@ -35,8 +34,7 @@ parser.add_argument('--batch_size', type=int)
 
 parser.add_argument('--num_epoch', type=int)
 
-#parser.add_argument('--test_tfrecord_path', dest='test_tfrecord_path', action='store_false')
-#parser.set_defaults(test_tfrecord_path=False)
+parser.add_argument('--test_tfrecord_path')
 
 parser.add_argument('--cifar10_mode', dest='cifar10_mode', action='store_false', help='if activating cifar test mode')
 parser.set_defaults(cifar10_mode=False)
@@ -59,7 +57,7 @@ def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics):
     If weight > 1, the model tend to not to allocate confidence on the class.
     Otherwise, predicitons will tend to fall into it.
     """
-    weight_array = create_loss_weight(args.num_label, weight_category=0, weight=1)
+    weight_array = create_loss_weight(args.num_label, weight_category=0, weight=10)
     loss_mask = create_weight_mask(y_train, logits, weights=weight_array)
     # Loss value for this minibatch
     loss_value = loss_fn(y_true=y_train, y_pred=logits,sample_weight=loss_mask)
@@ -87,12 +85,8 @@ def train(model, optimizer, loss_fn, dataset, metrics, epoch):
     
     loss = train_one_step(model, optimizer, loss_fn, images, labels, metrics)
 
-    if step % 10 == 0:
-      break
-
     if tf.equal(step % 10, 0):
       tf.print('step', step, 'loss', loss, 'accuracy', metrics.result())
-      break
   tf.print('Final:step', step, 'loss', loss, 'accuracy', metrics.result())
 
 
@@ -103,7 +97,7 @@ def main():
     train_image_size = 32
     num_label = 10
 
-    dataset = create_dataset(args.tfrecord_path, args.batch_size, train_image_size, num_label,
+    dataset = create_dataset(args.tfrecord_path, args.batch_size, args.num_epoch, train_image_size, num_label,
                              preprocess_for_train, cifar10_mode=True)
   
 
@@ -120,7 +114,7 @@ def main():
   tf.keras.backend.clear_session()
   
   # Learning rate config
-  learning_rate_decay = tf.optimizers.schedules.ExponentialDecay(0.001, 400, 0.9)
+  learning_rate_decay = tf.optimizers.schedules.ExponentialDecay(0.001, 100, 0.9)
   
   # Create Optimizer
   optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate_decay)
@@ -146,9 +140,10 @@ def main():
 
   # Evaluate results
   if args.test_tfrecord_path:
-    test_dataset = create(args.test_tfrecord_path, args.batch_size, train_image_size,
-                             num_label, preprocess_for_train, is_training=False)
-    evaluation(model, args.test_tfrecord_path, args.save_eval_result_path)
+    test_dataset = create_dataset(args.test_tfrecord_path, 1,
+                                  train_image_size, num_label,
+                                  preprocess_for_train, is_training=False)
+    evaluate_for_iwild(model, test_dataset, args.save_eval_result_path)
 
 
 if __name__ == '__main__':
