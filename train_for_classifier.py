@@ -11,6 +11,8 @@ from dataset.create_dataset import create_dataset
 from preprocess.preprocess import preprocess_for_train
 from loss.weight_loss_fn import create_loss_weight, create_weight_mask
 
+from evaluation import evaluation
+
 
 
 parser = ArgumentParser()
@@ -18,6 +20,8 @@ parser = ArgumentParser()
 parser.add_argument('--tfrecord_path')
 
 parser.add_argument('--model_save_path')
+
+parser.add_argument('--save_eval_result_path')
 
 parser.add_argument('--train_image_size', type=int)
 
@@ -31,8 +35,11 @@ parser.add_argument('--batch_size', type=int)
 
 parser.add_argument('--num_epoch', type=int)
 
-parser.add_argument('--cifar10_test_mode', dest='cifar10_test_mode', action='store_true', help='if activating cifar test mode')
-parser.set_defaults(cifar10_test_mode=False)
+#parser.add_argument('--test_tfrecord_path', dest='test_tfrecord_path', action='store_false')
+#parser.set_defaults(test_tfrecord_path=False)
+
+parser.add_argument('--cifar10_mode', dest='cifar10_mode', action='store_false', help='if activating cifar test mode')
+parser.set_defaults(cifar10_mode=False)
 
 args = parser.parse_args()
 
@@ -80,20 +87,24 @@ def train(model, optimizer, loss_fn, dataset, metrics, epoch):
     
     loss = train_one_step(model, optimizer, loss_fn, images, labels, metrics)
 
+    if step % 10 == 0:
+      break
+
     if tf.equal(step % 10, 0):
       tf.print('step', step, 'loss', loss, 'accuracy', metrics.result())
+      break
   tf.print('Final:step', step, 'loss', loss, 'accuracy', metrics.result())
 
 
 def main():
 
-  if args.cifar10_test_mode:
+  if args.cifar10_mode:
 
     train_image_size = 32
     num_label = 10
 
     dataset = create_dataset(args.tfrecord_path, args.batch_size, train_image_size, num_label,
-                             preprocess_for_train, test_mode=True)
+                             preprocess_for_train, cifar10_mode=True)
   
 
   else:
@@ -131,7 +142,13 @@ def main():
   train(model, optimizer, loss_fn, dataset, compute_accuracy, args.num_epoch)
 
   # Export the model to a checkpoint
-  checkpoint.save(file_prefix=args.model_save_path + 'ckpt')
+  #checkpoint.save(file_prefix=args.model_save_path + 'ckpt')
+
+  # Evaluate results
+  if args.test_tfrecord_path:
+    test_dataset = create(args.test_tfrecord_path, args.batch_size, train_image_size,
+                             num_label, preprocess_for_train, is_training=False)
+    evaluation(model, args.test_tfrecord_path, args.save_eval_result_path)
 
 
 if __name__ == '__main__':
