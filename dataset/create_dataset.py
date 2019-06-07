@@ -22,8 +22,8 @@ def _parse_function(proto):
 
 
 
-def create_dataset(tfrecord_path, batch_size=32, num_epoch=1, train_image_size=224, num_label,
-                   preprocess_fn, shuffle_buffer=100, is_training=True, 
+def create_dataset(tfrecord_path, preprocess_fn, num_label, batch_size=32, num_epoch=1, train_image_size=224, 
+                   shuffle_buffer=100, is_training=True, 
                    cifar10_mode=False):
 
  

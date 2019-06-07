@@ -97,8 +97,8 @@ def main():
     train_image_size = 32
     num_label = 10
 
-    dataset = create_dataset(args.tfrecord_path, args.batch_size, args.num_epoch, train_image_size, num_label,
-                             preprocess_for_train, cifar10_mode=True)
+    dataset = create_dataset(args.tfrecord_path, preprocess_for_train, num_label, args.batch_size,
+                             args.num_epoch, train_image_size, cifar10_mode=True)
   
 
   else:
@@ -106,8 +106,7 @@ def main():
     train_image_size = args.train_image_size
     num_label = args.num_label
 
-    dataset = create_dataset(args.tfrecord_path, args.batch_size, train_image_size,
-                             num_label, preprocess_for_train)
+    dataset = create_dataset(args.tfrecord_path, preprocess_for_train, num_label, args.batch_size,                             args.num_epoch, train_image_size)
 
 
   # Clearing the session removes all the nodes left over
