@@ -36,8 +36,7 @@ parser.add_argument('--num_epoch', type=int)
 
 parser.add_argument('--test_tfrecord_path')
 
-parser.add_argument('--cifar10_mode', dest='cifar10_mode', action='store_false', help='if activating cifar test mode')
-parser.set_defaults(cifar10_mode=False)
+parser.add_argument('--cifar10_mode', dest='cifar10_mode', action='store_true', help='if activating cifar test mode')
 
 args = parser.parse_args()
 
@@ -46,7 +45,7 @@ TOTAL_IWILD_TRAIN_IMAGE = 196086
 
 
 
-def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics):
+def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics, num_label):
 
   with tf.GradientTape() as tape:
     logits = model(x_train)  # Logits for this minibatch
@@ -57,7 +56,7 @@ def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics):
     If weight > 1, the model tend to not to allocate confidence on the class.
     Otherwise, predicitons will tend to fall into it.
     """
-    weight_array = create_loss_weight(args.num_label, weight_category=0, weight=10)
+    weight_array = create_loss_weight(num_label, weight_category=0, weight=10)
     loss_mask = create_weight_mask(y_train, logits, weights=weight_array)
     # Loss value for this minibatch
     loss_value = loss_fn(y_true=y_train, y_pred=logits,sample_weight=loss_mask)
@@ -77,13 +76,13 @@ def train_one_step(model, optimizer, loss_fn, x_train, y_train, metrics):
 # There is no tf.function is used here, since the incompability
 # on dataset api and some eager mode features.
 #@tf.function
-def train(model, optimizer, loss_fn, dataset, metrics, epoch):
+def train(model, optimizer, loss_fn, dataset, metrics, epoch, num_label):
 
   step = 0
   for images, labels in dataset:
     step += 1
     
-    loss = train_one_step(model, optimizer, loss_fn, images, labels, metrics)
+    loss = train_one_step(model, optimizer, loss_fn, images, labels, metrics, num_label)
 
     if tf.equal(step % 10, 0):
       tf.print('step', step, 'loss', loss, 'accuracy', metrics.result())
@@ -126,13 +125,14 @@ def main():
   compute_accuracy = tf.keras.metrics.CategoricalAccuracy()
 
   # Create model
-  model = Inception(args.num_label)
+  num_label = 10 if args.cifar10_mode else args.num_label
+  model = Inception(num_label)
 
   # Set up checkpoint
   checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
 
   # Training process
-  train(model, optimizer, loss_fn, dataset, compute_accuracy, args.num_epoch)
+  train(model, optimizer, loss_fn, dataset, compute_accuracy, args.num_epoch, num_label)
 
   # Export the model to a checkpoint
   #checkpoint.save(file_prefix=args.model_save_path + 'ckpt')

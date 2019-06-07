@@ -53,10 +53,12 @@ def preprocess_for_train(images, labels, image_name, width, height, num_label, f
     # Randomly filp images
     distorted_images = tf.image.random_flip_left_right(distorted_images)
 
-    # Label process
     labels = tf.one_hot(labels, num_label)
+
     if cifar10_mode:
-      labels = tf.squeeze(labels, axis=1)
+      labels = tf.squeeze(tf.reshape(labels, shape=(num_label, -1)), axis=1)
+      print(labels.shape)
+
     return distorted_images, labels
 
   else:
